@@ -45,4 +45,21 @@ public class ProductRepository : IProductRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
+
+    /// <summary>
+    /// Deletes a product by its unique identifier
+    /// </summary>
+    /// <param name="id">The unique identifier of the product</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if the product was successfully deleted, otherwise false</returns>
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (product == null)
+            return false; 
+
+        _context.Products.Remove(product);
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }
