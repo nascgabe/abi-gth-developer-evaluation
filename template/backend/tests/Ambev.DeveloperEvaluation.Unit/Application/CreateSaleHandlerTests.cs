@@ -392,7 +392,7 @@ public class CreateSaleHandlerTests
 
         // Then
         await act.Should().ThrowAsync<DomainException>()
-            .WithMessage($"Product 'Sample Product' does not have enough stock. Available: 5, Requested: 10");
+            .WithMessage($"Product 'Product' does not have enough stock. Available: 5, Requested: 10");
     }
 
     [Fact(DisplayName = "Given failure to update stock When creating sale Then throws DomainException")]
