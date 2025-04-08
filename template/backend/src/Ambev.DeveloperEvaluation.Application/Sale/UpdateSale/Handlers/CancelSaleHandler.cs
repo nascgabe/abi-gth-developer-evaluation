@@ -1,6 +1,7 @@
 ﻿using Ambev.DeveloperEvaluation.Application.Sale.UpdateSale.Commands;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Ambev.DeveloperEvaluation.Application.Sale.UpdateSale.Handlers;
 
@@ -11,16 +12,19 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, bool>
 {
     private readonly ISaleRepository _saleRepository;
     private readonly IProductRepository _productRepository;
+    private readonly ILogger<CancelSaleHandler> _logger;
 
     /// <summary>
     /// Initializes a new instance of CancelSaleHandler
     /// </summary>
     /// <param name="saleRepository">The sale repository</param>
     /// <param name="productRepository">The product repository</param>
-    public CancelSaleHandler(ISaleRepository saleRepository, IProductRepository productRepository)
+    /// <param name="logger">Logger for logging events</param>
+    public CancelSaleHandler(ISaleRepository saleRepository, IProductRepository productRepository, ILogger<CancelSaleHandler> logger)
     {
         _saleRepository = saleRepository;
         _productRepository = productRepository;
+        _logger = logger;
     }
 
     /// <summary>
@@ -40,6 +44,8 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, bool>
 
         await SaveCancelledSaleAsync(sale, cancellationToken);
 
+        _logger.LogInformation($"SaleCancelled: Sale with ID {sale.Id} was successfully cancelled.");
+
         return true;
     }
 
@@ -54,10 +60,14 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, bool>
     {
         var sale = await _saleRepository.GetByIdAsync(saleId, cancellationToken);
         if (sale == null)
+        {
             throw new DomainException($"Sale with ID {saleId} not found.");
+        }
 
         if (sale.IsCancelled)
+        {
             throw new DomainException($"Sale with ID {saleId} is already cancelled.");
+        }
 
         return sale;
     }
@@ -76,6 +86,7 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, bool>
     /// </summary>
     /// <param name="items">The list of sale items</param>
     /// <param name="cancellationToken">Cancellation token</param>
+    /// <exception cref="DomainException">Thrown if any product is not found or stock restoration fails</exception>
     private async Task RestoreProductStockAsync(IEnumerable<Domain.Entities.SaleItem> items, CancellationToken cancellationToken)
     {
         foreach (var item in items)
@@ -88,7 +99,9 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, bool>
 
                 var updated = await _productRepository.UpdateStockAsync(product.Id, product.Stock, cancellationToken);
                 if (!updated)
+                {
                     throw new DomainException($"Failed to update stock for product '{product.Title}'.");
+                }
             }
             else
             {
@@ -105,6 +118,5 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, bool>
     private async Task SaveCancelledSaleAsync(Domain.Entities.Sale sale, CancellationToken cancellationToken)
     {
         await _saleRepository.UpdateAsync(sale, cancellationToken);
-
     }
 }
