@@ -37,7 +37,7 @@ public class DeleteProductHandler : IRequestHandler<DeleteProductCommand, Delete
 
         var success = await _productRepository.DeleteAsync(request.Id, cancellationToken);
         if (!success)
-            throw new KeyNotFoundException($"Product with ID {request.Id} not found");
+            throw new DomainException($"Product with ID {request.Id} not found.");
 
         return new DeleteProductResponse { Success = true };
     }

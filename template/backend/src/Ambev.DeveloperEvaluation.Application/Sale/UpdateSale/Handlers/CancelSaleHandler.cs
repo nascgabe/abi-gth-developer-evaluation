@@ -7,41 +7,104 @@ namespace Ambev.DeveloperEvaluation.Application.Sale.UpdateSale.Handlers;
 /// <summary>
 /// Handler for processing CancelSaleCommand requests.
 /// </summary>
-public class CancelSaleCommandHandler : IRequestHandler<CancelSaleCommand, bool>
+public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, bool>
 {
     private readonly ISaleRepository _saleRepository;
     private readonly IProductRepository _productRepository;
 
-    public CancelSaleCommandHandler(ISaleRepository saleRepository, IProductRepository productRepository)
+    /// <summary>
+    /// Initializes a new instance of CancelSaleHandler
+    /// </summary>
+    /// <param name="saleRepository">The sale repository</param>
+    /// <param name="productRepository">The product repository</param>
+    public CancelSaleHandler(ISaleRepository saleRepository, IProductRepository productRepository)
     {
         _saleRepository = saleRepository;
         _productRepository = productRepository;
     }
 
+    /// <summary>
+    /// Handles the CancelSaleCommand request
+    /// </summary>
+    /// <param name="request">The CancelSale command</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if the sale was successfully cancelled</returns>
+    /// <exception cref="DomainException">Thrown when validation fails or sale is not found</exception>
     public async Task<bool> Handle(CancelSaleCommand request, CancellationToken cancellationToken)
     {
-        var sale = await _saleRepository.GetByIdAsync(request.SaleId, cancellationToken);
+        var sale = await GetValidatedSaleAsync(request.SaleId, cancellationToken);
 
-        if (sale == null || sale.IsCancelled)
-        {
-            return false;
-        }
+        CancelSale(sale);
 
+        await RestoreProductStockAsync(sale.Items, cancellationToken);
+
+        await SaveCancelledSaleAsync(sale, cancellationToken);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates the sale and retrieves it by SaleId.
+    /// </summary>
+    /// <param name="saleId">The unique identifier of the sale</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The validated sale entity</returns>
+    /// <exception cref="DomainException">Thrown if the sale is not found or already cancelled</exception>
+    private async Task<Domain.Entities.Sale> GetValidatedSaleAsync(Guid saleId, CancellationToken cancellationToken)
+    {
+        var sale = await _saleRepository.GetByIdAsync(saleId, cancellationToken);
+        if (sale == null)
+            throw new DomainException($"Sale with ID {saleId} not found.");
+
+        if (sale.IsCancelled)
+            throw new DomainException($"Sale with ID {saleId} is already cancelled.");
+
+        return sale;
+    }
+
+    /// <summary>
+    /// Cancels the sale by marking it as cancelled.
+    /// </summary>
+    /// <param name="sale">The sale entity to cancel</param>
+    private void CancelSale(Domain.Entities.Sale sale)
+    {
         sale.IsCancelled = true;
+    }
 
-        foreach (var item in sale.Items)
+    /// <summary>
+    /// Restores the stock of products sold in the cancelled sale.
+    /// </summary>
+    /// <param name="items">The list of sale items</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    private async Task RestoreProductStockAsync(IEnumerable<Domain.Entities.SaleItem> items, CancellationToken cancellationToken)
+    {
+        foreach (var item in items)
         {
             var product = await _productRepository.GetByIdAsync(item.ProductId, cancellationToken);
 
             if (product != null)
             {
                 product.Stock += item.Quantity;
-                await _productRepository.UpdateStockAsync(product.Id, product.Stock, cancellationToken);
+
+                var updated = await _productRepository.UpdateStockAsync(product.Id, product.Stock, cancellationToken);
+                if (!updated)
+                    throw new DomainException($"Failed to update stock for product '{product.Title}'.");
+            }
+            else
+            {
+                throw new DomainException($"Product with ID {item.ProductId} not found during stock restoration.");
             }
         }
+    }
 
+    /// <summary>
+    /// Saves the cancelled sale in the repository.
+    /// </summary>
+    /// <param name="sale">The sale entity to save</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    private async Task SaveCancelledSaleAsync(Domain.Entities.Sale sale, CancellationToken cancellationToken)
+    {
         await _saleRepository.UpdateAsync(sale, cancellationToken);
 
-        return true;
     }
 }

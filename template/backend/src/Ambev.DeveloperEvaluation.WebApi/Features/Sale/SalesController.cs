@@ -38,16 +38,12 @@ namespace Ambev.DeveloperEvaluation.WebApi.Features.Sales
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponseWithData<CreateSaleResponse>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CreateSale([FromBody] CreateSaleRequest request, CancellationToken cancellationToken)
         {
-            var authenticatedUser = HttpContext.User.Identity?.Name;
-
-            if (string.IsNullOrEmpty(authenticatedUser))
-                return Unauthorized(new ApiResponse { Success = false, Message = "User is not authenticated" });
-
-            var user = await _userRepository.GetByUsernameAsync(authenticatedUser, cancellationToken);
-            if (user == null)
-                return NotFound(new ApiResponse { Success = false, Message = "Authenticated user not found in the database" });
+            var authenticatedUser = GetAuthenticatedUsername();
+            var user = await GetAuthenticatedUserAsync(authenticatedUser, cancellationToken);
 
             request.Client = user.Username;
 
@@ -128,7 +124,7 @@ namespace Ambev.DeveloperEvaluation.WebApi.Features.Sales
         public async Task<IActionResult> UpdateItemQuantity(Guid saleId,
             Guid itemId, [FromBody] UpdateItemQuantityRequest request, CancellationToken cancellationToken)
         {
-            var result = await _mediator.Send(new UpdateItemQuantityCommand(saleId, itemId, request.Quantity), cancellationToken);
+            var result = await _mediator.Send(new CancelItemQuantityCommand(saleId, itemId, request.Quantity), cancellationToken);
 
             if (!result)
                 return BadRequest(new ApiResponse { Success = false, Message = "Invalid quantity or item not found" });
@@ -166,6 +162,31 @@ namespace Ambev.DeveloperEvaluation.WebApi.Features.Sales
                 return NotFound(new ApiResponse { Success = false, Message = "Sale not found" });
 
             return Ok(new ApiResponse { Success = true, Message = "Sale deleted successfully" });
+        }
+
+        /// <summary>
+        /// Retrieves the username of the authenticated user from the context
+        /// </summary>
+        private string GetAuthenticatedUsername()
+        {
+            var authenticatedUser = HttpContext.User.Identity?.Name;
+
+            if (string.IsNullOrEmpty(authenticatedUser))
+                throw new UnauthorizedAccessException("User is not authenticated");
+
+            return authenticatedUser;
+        }
+
+        /// <summary>
+        /// Retrieves the authenticated user entity from the database
+        /// </summary>
+        private async Task<Domain.Entities.User> GetAuthenticatedUserAsync(string username, CancellationToken cancellationToken)
+        {
+            var user = await _userRepository.GetByUsernameAsync(username, cancellationToken);
+            if (user == null)
+                throw new DomainException("Authenticated user not found in the database.");
+
+            return user;
         }
     }
 }

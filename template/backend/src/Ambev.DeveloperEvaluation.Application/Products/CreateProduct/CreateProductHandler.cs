@@ -42,8 +42,10 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Create
         var product = _mapper.Map<Product>(command);
 
         var createdProduct = await _productRepository.CreateAsync(product, cancellationToken);
-        var result = _mapper.Map<CreateProductResult>(createdProduct);
 
-        return result;
+        if (createdProduct is null)
+            throw new DomainException("An error occurred while creating the product.");
+
+        return _mapper.Map<CreateProductResult>(createdProduct);
     }
 }

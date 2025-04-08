@@ -19,9 +19,22 @@ public class GetAllSalesHandler : IRequestHandler<GetAllSalesCommand, List<GetSa
         _mapper = mapper;
     }
 
+    /// <summary>
+    /// Handles the GetAllSalesCommand request
+    /// </summary>
+    /// <param name="request">The GetAllSalesCommand request</param>
+    /// <param name="cancellationToken">Cancellation token to handle request cancellation</param>
+    /// <returns>A list of sale results</returns>
+    /// <exception cref="DomainException">Thrown when no sales are found</exception>
     public async Task<List<GetSaleResult>> Handle(GetAllSalesCommand request, CancellationToken cancellationToken)
     {
         var sales = await _saleRepository.GetAllAsync(cancellationToken);
+
+        if (sales is null || !sales.Any())
+        {
+            throw new DomainException("No sales were found in the database.");
+        }
+
         return _mapper.Map<List<GetSaleResult>>(sales);
     }
 }
