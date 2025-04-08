@@ -33,13 +33,21 @@ namespace Ambev.DeveloperEvaluation.Application.Sale.DeleteSale
                 throw new DomainException($"The sale with ID {request.SaleId} does not exist.");
             }
 
-            var isDeleted = await _saleRepository.DeleteAsync(request.SaleId, cancellationToken);
-            if (!isDeleted)
+            var saleItem = existingSale.Items.FirstOrDefault(item => item.Id == request.ItemId);
+            if (saleItem is null)
             {
-                throw new DomainException($"Failed to delete the sale with ID {request.SaleId}. Please try again.");
+                throw new DomainException($"The sale item with ID {request.ItemId} does not exist.");
             }
 
-            _logger.LogInformation($"SaleDeleted: Sale with ID {request.SaleId} was successfully deleted.");
+            var isDeleted = await _saleRepository.DeleteSaleItemAsync(request.ItemId, cancellationToken);
+            if (!isDeleted)
+            {
+                throw new DomainException($"Failed to delete the sale item with ID {request.ItemId}. Please try again.");
+            }
+
+            existingSale.Items.Remove(saleItem);
+
+            _logger.LogInformation($"SaleItemDeleted: Sale item with ID {request.ItemId} was successfully deleted.");
 
             return true;
         }

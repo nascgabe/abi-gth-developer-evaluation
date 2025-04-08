@@ -9,6 +9,7 @@ public class CreateSaleResult
     public DateTime SaleDate { get; set; }
     public string Client { get; set; } = string.Empty;
     public string Branch { get; set; } = string.Empty;
+    public string SaleNumber { get; set; } = string.Empty;
     public decimal TotalValue { get; set; }
     public List<SaleItemResult> Items { get; set; } = new();
 }
