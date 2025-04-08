@@ -1,9 +1,10 @@
 ﻿using Ambev.DeveloperEvaluation.Application.Products.CreateProduct;
 using Ambev.DeveloperEvaluation.Application.Products.DeleteProduct;
 using Ambev.DeveloperEvaluation.Application.Products.GetProduct;
-using Ambev.DeveloperEvaluation.Application.Users.DeleteUser;
+using Ambev.DeveloperEvaluation.Application.Products.UpdateProduct;
 using Ambev.DeveloperEvaluation.WebApi.Common;
 using Ambev.DeveloperEvaluation.WebApi.Features.Products.GetProduct;
+using Ambev.DeveloperEvaluation.WebApi.Features.Products.UpdateProduct;
 using AutoMapper;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -60,6 +61,53 @@ namespace Ambev.DeveloperEvaluation.WebApi.Features.Products
         }
 
         /// <summary>
+        /// Creates multiple products in batch
+        /// </summary>
+        /// <param name="requests">The list of product creation requests</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Status of the batch creation operation</returns>
+        [HttpPost("batch")]
+        [ProducesResponseType(typeof(ApiResponseWithData<List<CreateProductResponse>>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateProductsBatch([FromBody] List<CreateProductRequest> requests, CancellationToken cancellationToken)
+        {
+            var validator = new CreateProductRequestValidator();
+            var invalidRequests = new List<CreateProductRequest>();
+            var results = new List<CreateProductResponse>();
+
+            foreach (var request in requests)
+            {
+                var validationResult = await validator.ValidateAsync(request, cancellationToken);
+                if (!validationResult.IsValid)
+                {
+                    invalidRequests.Add(request);
+                }
+                else
+                {
+                    var command = _mapper.Map<CreateProductCommand>(request);
+                    var createdProduct = await _mediator.Send(command, cancellationToken);
+                    results.Add(_mapper.Map<CreateProductResponse>(createdProduct));
+                }
+            }
+
+            if (invalidRequests.Any())
+            {
+                return BadRequest(new ApiResponse
+                {
+                    Success = false,
+                    Message = "Some product creation requests are invalid"
+                });
+            }
+
+            return Created(string.Empty, new ApiResponseWithData<List<CreateProductResponse>>
+            {
+                Success = true,
+                Message = "Batch products created successfully",
+                Data = results
+            });
+        }
+
+        /// <summary>
         /// Retrieves a product by its ID
         /// </summary>
         /// <param name="id">The unique identifier of the product</param>
@@ -86,6 +134,51 @@ namespace Ambev.DeveloperEvaluation.WebApi.Features.Products
                 Success = true,
                 Message = "Product retrieved successfully",
                 Data = _mapper.Map<GetProductResponse>(response)
+            });
+        }
+
+        /// <summary>
+        /// Updates an existing product partially
+        /// </summary>
+        /// <param name="id">The unique identifier of the product</param>
+        /// <param name="request">The product update request (partial)</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Status of the update operation</returns>
+        [HttpPatch("{id}")]
+        [ProducesResponseType(typeof(ApiResponseWithData<UpdateProductResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateProduct([FromRoute] Guid id, [FromBody] UpdateProductRequest request, CancellationToken cancellationToken)
+        {
+            var existingProduct = await _mediator.Send(new GetProductCommand(id), cancellationToken);
+
+            if (existingProduct == null)
+            {
+                return NotFound(new ApiResponse
+                {
+                    Success = false,
+                    Message = $"Product with ID {id} not found"
+                });
+            }
+
+            var updateCommand = new UpdateProductCommand
+            {
+                Id = id,
+                Title = request.Title,
+                Description = request.Description,
+                Category = request.Category,
+                Image = request.Image,
+                Price = request.Price,
+                Stock = request.Stock
+            };
+
+            var result = await _mediator.Send(updateCommand, cancellationToken);
+
+            return Ok(new ApiResponseWithData<UpdateProductResponse>
+            {
+                Success = true,
+                Message = "Product updated successfully",
+                Data = _mapper.Map<UpdateProductResponse>(result)
             });
         }
 
