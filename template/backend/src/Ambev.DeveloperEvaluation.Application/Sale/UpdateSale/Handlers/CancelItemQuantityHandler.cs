@@ -1,4 +1,5 @@
 ﻿using Ambev.DeveloperEvaluation.Application.Sale.UpdateSale.Commands;
+using Ambev.DeveloperEvaluation.Application.Utilities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -154,22 +155,7 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
     /// </summary>
     private void UpdateSaleItem(Domain.Entities.SaleItem saleItem, int newQuantity)
     {
-        saleItem.Quantity = newQuantity;
-
-        if (newQuantity >= 4 && newQuantity < 10)
-        {
-            saleItem.Discount = saleItem.UnitPrice * newQuantity * 0.10m;
-        }
-        else if (newQuantity >= 10 && newQuantity <= 20)
-        {
-            saleItem.Discount = saleItem.UnitPrice * newQuantity * 0.20m;
-        }
-        else
-        {
-            saleItem.Discount = 0;
-        }
-
-        saleItem.TotalValue = (saleItem.UnitPrice * newQuantity) - saleItem.Discount;
+        PricingCalculator.ApplyOrUpdatePricing(saleItem, saleItem.UnitPrice, newQuantity, saleItem.ProductName);
     }
 
     /// <summary>
