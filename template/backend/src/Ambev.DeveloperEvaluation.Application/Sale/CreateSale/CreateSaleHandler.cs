@@ -15,7 +15,7 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     private readonly ISaleRepository _saleRepository;
     private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
-    private readonly ILogger _logger;
+    private readonly ILogger<CreateSaleHandler> _logger;
 
     /// <summary>
     /// Initializes a new instance of CreateSaleHandler.
@@ -23,7 +23,7 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     /// <param name="saleRepository">The sale repository</param>
     /// <param name="mapper">The AutoMapper instance</param>
     public CreateSaleHandler(ISaleRepository saleRepository,
-        IProductRepository productRepository, IMapper mapper, ILogger logger)
+        IProductRepository productRepository, IMapper mapper, ILogger<CreateSaleHandler> logger)
     {
         _saleRepository = saleRepository;
         _productRepository = productRepository;
