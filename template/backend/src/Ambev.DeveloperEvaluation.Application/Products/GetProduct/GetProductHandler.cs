@@ -42,7 +42,7 @@ namespace Ambev.DeveloperEvaluation.Application.Products.GetProduct
 
             var product = await _productRepository.GetByIdAsync(request.Id, cancellationToken);
             if (product == null)
-                throw new KeyNotFoundException($"Product with ID {request.Id} not found");
+                throw new DomainException($"Product with ID {request.Id} not found");
 
             return _mapper.Map<GetProductResult>(product);
         }

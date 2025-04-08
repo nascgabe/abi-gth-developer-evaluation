@@ -8,6 +8,8 @@ namespace Ambev.DeveloperEvaluation.WebApi.Features.Products.UpdateProduct
         public UpdateProductProfile()
         {
             CreateMap<UpdateProductResult, UpdateProductResponse>();
+
+            CreateMap<UpdateProductRequest, UpdateProductCommand>();
         }
     }
 }

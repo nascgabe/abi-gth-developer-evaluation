@@ -1,4 +1,7 @@
-﻿using Ambev.DeveloperEvaluation.Domain.Repositories;
+﻿using Ambev.DeveloperEvaluation.Domain.Entities;
+using Ambev.DeveloperEvaluation.Domain.Repositories;
+using AutoMapper;
+using FluentValidation;
 using MediatR;
 
 namespace Ambev.DeveloperEvaluation.Application.Products.UpdateProduct
@@ -9,51 +12,83 @@ namespace Ambev.DeveloperEvaluation.Application.Products.UpdateProduct
     public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, UpdateProductResult?>
     {
         private readonly IProductRepository _productRepository;
+        private readonly IMapper _mapper;
 
 
         /// <summary>
         /// Initializes a new instance of UpdateProductHandler
         /// </summary>
         /// <param name="productRepository">The product repository</param>
-        public UpdateProductHandler(IProductRepository productRepository)
+        public UpdateProductHandler(IProductRepository productRepository, IMapper mapper)
         {
             _productRepository = productRepository;
+            _mapper = mapper;
         }
 
         /// <summary>
-        /// Handles the update product command
+        /// Handles the UpdateProductCommand request
         /// </summary>
-        /// <param name="request">The update product command</param>
-        /// <param name="cancellationToken">The cancellation token</param>
-        /// <returns>The result of the product update operation</returns>
-        public async Task<UpdateProductResult?> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
+        /// <param name="request">The UpdateProduct command</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The updated product details</returns>
+        public async Task<UpdateProductResult> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
         {
-            var existingProduct = await _productRepository.GetByIdAsync(request.Id, cancellationToken);
+            ValidateCommand(request, cancellationToken);
 
-            if (existingProduct == null)
-                return null;
+            var existingProduct = await GetExistingProduct(request.Id, cancellationToken);
 
-            existingProduct.Title = request.Title ?? existingProduct.Title;
-            existingProduct.Description = request.Description ?? existingProduct.Description;
-            existingProduct.Category = request.Category ?? existingProduct.Category;
-            existingProduct.Image = request.Image ?? existingProduct.Image;
-            existingProduct.Price = request.Price ?? existingProduct.Price;
-            existingProduct.Stock = request.Stock ?? existingProduct.Stock;
+            await UpdateProduct(existingProduct, request, cancellationToken);
 
-            var updated = await _productRepository.UpdateAsync(existingProduct, cancellationToken);
+            return _mapper.Map<UpdateProductResult>(existingProduct);
+        }
+
+        /// <summary>
+        /// Validates the UpdateProductCommand
+        /// </summary>
+        /// <param name="command">The command to validate</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        private void ValidateCommand(UpdateProductCommand command, CancellationToken cancellationToken)
+        {
+            var validator = new UpdateProductValidator();
+            var validationResult = validator.Validate(command);
+
+            if (!validationResult.IsValid)
+                throw new ValidationException(validationResult.Errors);
+        }
+
+        /// <summary>
+        /// Retrieves the existing product by ID
+        /// </summary>
+        /// <param name="productId">The product ID</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The existing product</returns>
+        private async Task<Product> GetExistingProduct(Guid productId, CancellationToken cancellationToken)
+        {
+            var product = await _productRepository.GetByIdAsync(productId, cancellationToken);
+            if (product is null)
+                throw new DomainException($"Product with ID {productId} not found.");
+
+            return product;
+        }
+
+        /// <summary>
+        /// Updates product fields and saves the updated product in the repository
+        /// </summary>
+        /// <param name="product">The existing product</param>
+        /// <param name="command">The command with updated fields</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        private async Task UpdateProduct(Product product, UpdateProductCommand command, CancellationToken cancellationToken)
+        {
+            product.Title = command.Title ?? product.Title;
+            product.Description = command.Description ?? product.Description;
+            product.Category = command.Category ?? product.Category;
+            product.Image = command.Image ?? product.Image;
+            product.Price = command.Price ?? product.Price;
+            product.Stock = command.Stock ?? product.Stock;
+
+            var updated = await _productRepository.UpdateAsync(product, cancellationToken);
             if (!updated)
-                return null;
-
-            return new UpdateProductResult
-            {
-                Id = existingProduct.Id,
-                Title = existingProduct.Title,
-                Description = existingProduct.Description,
-                Category = existingProduct.Category,
-                Image = existingProduct.Image,
-                Price = existingProduct.Price,
-                Stock = existingProduct.Stock
-            };
+                throw new DomainException("Failed to update the product.");
         }
     }
 }
