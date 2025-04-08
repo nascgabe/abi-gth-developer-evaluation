@@ -1,26 +1,30 @@
 ﻿using Ambev.DeveloperEvaluation.Application.Sale.UpdateSale.Commands;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Ambev.DeveloperEvaluation.Application.Sale.UpdateSale.Handlers;
 
 /// <summary>
-/// Handler for processing UpdateItemQuantityCommand requests.
+/// Handler for processing CancelItemQuantityCommand requests.
 /// </summary>
 public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityCommand, bool>
 {
     private readonly ISaleRepository _saleRepository;
     private readonly IProductRepository _productRepository;
+    private readonly ILogger<CancelItemQuantityHandler> _logger;
 
     /// <summary>
     /// Initializes a new instance of CancelItemQuantityHandler
     /// </summary>
     /// <param name="saleRepository">The sale repository</param>
     /// <param name="productRepository">The product repository</param>
-    public CancelItemQuantityHandler(ISaleRepository saleRepository, IProductRepository productRepository)
+    /// <param name="logger">Logger instance for logging events</param>
+    public CancelItemQuantityHandler(ISaleRepository saleRepository, IProductRepository productRepository, ILogger<CancelItemQuantityHandler> logger)
     {
         _saleRepository = saleRepository;
         _productRepository = productRepository;
+        _logger = logger;
     }
 
     /// <summary>
@@ -37,7 +41,14 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
 
         if (request.Quantity == 0)
         {
-            return await RemoveSaleItemAsync(sale, saleItem, cancellationToken);
+            var result = await RemoveSaleItemAsync(sale, saleItem, cancellationToken);
+
+            if (result)
+            {
+                _logger.LogInformation($"ItemCancelled: Item with ID {saleItem.Id} was removed from sale {sale.Id}.");
+            }
+
+            return result;
         }
 
         if (!IsValidQuantity(request.Quantity))
@@ -46,19 +57,19 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
         }
 
         await UpdateSaleItemQuantityAsync(sale, saleItem, request.Quantity, cancellationToken);
+
+        _logger.LogInformation($"ItemQuantityCancelled: Quantity for item {saleItem.Id} in sale {sale.Id} was updated to {request.Quantity}.");
+
         return true;
     }
 
     /// <summary>
     /// Validates the sale and retrieves it by SaleId.
     /// </summary>
-    /// <param name="saleId">The unique identifier of the sale</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>The validated sale entity</returns>
-    /// <exception cref="DomainException">Thrown if the sale is not found or already cancelled</exception>
     private async Task<Domain.Entities.Sale> GetValidatedSaleAsync(Guid saleId, CancellationToken cancellationToken)
     {
         var sale = await _saleRepository.GetByIdAsync(saleId, cancellationToken);
+
         if (sale is null)
         {
             throw new DomainException($"The sale with ID {saleId} was not found.");
@@ -75,10 +86,6 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
     /// <summary>
     /// Validates the sale item and retrieves it from the sale.
     /// </summary>
-    /// <param name="sale">The sale containing the items</param>
-    /// <param name="itemId">The unique identifier of the sale item</param>
-    /// <returns>The validated sale item</returns>
-    /// <exception cref="DomainException">Thrown if the item is not found in the sale</exception>
     private Domain.Entities.SaleItem GetValidatedSaleItem(Domain.Entities.Sale sale, Guid itemId)
     {
         var saleItem = sale.Items.FirstOrDefault(item => item.Id == itemId);
@@ -93,10 +100,6 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
     /// <summary>
     /// Removes a sale item and restores the product stock.
     /// </summary>
-    /// <param name="sale">The sale containing the items</param>
-    /// <param name="saleItem">The sale item to remove</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>True if the item was successfully removed</returns>
     private async Task<bool> RemoveSaleItemAsync(Domain.Entities.Sale sale, Domain.Entities.SaleItem saleItem, CancellationToken cancellationToken)
     {
         var product = await _productRepository.GetByIdAsync(saleItem.ProductId, cancellationToken);
@@ -123,10 +126,6 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
     /// <summary>
     /// Updates the quantity of a sale item and adjusts the stock.
     /// </summary>
-    /// <param name="sale">The sale containing the items</param>
-    /// <param name="saleItem">The sale item to update</param>
-    /// <param name="newQuantity">The new quantity for the sale item</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     private async Task UpdateSaleItemQuantityAsync(Domain.Entities.Sale sale, Domain.Entities.SaleItem saleItem, int newQuantity, CancellationToken cancellationToken)
     {
         var quantityDifference = saleItem.Quantity - newQuantity;
@@ -153,8 +152,6 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
     /// <summary>
     /// Updates the properties of a sale item based on the new quantity.
     /// </summary>
-    /// <param name="saleItem">The sale item to update</param>
-    /// <param name="newQuantity">The new quantity</param>
     private void UpdateSaleItem(Domain.Entities.SaleItem saleItem, int newQuantity)
     {
         saleItem.Quantity = newQuantity;
@@ -178,7 +175,6 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
     /// <summary>
     /// Recalculates the total value of a sale based on its items.
     /// </summary>
-    /// <param name="sale">The sale to recalculate</param>
     private void RecalculateSaleTotal(Domain.Entities.Sale sale)
     {
         sale.TotalValue = sale.Items.Sum(item => item.TotalValue);
@@ -187,8 +183,6 @@ public class CancelItemQuantityHandler : IRequestHandler<CancelItemQuantityComma
     /// <summary>
     /// Validates the quantity to ensure it is within the allowed range.
     /// </summary>
-    /// <param name="quantity">The quantity to validate</param>
-    /// <returns>True if the quantity is valid</returns>
     private bool IsValidQuantity(int quantity)
     {
         return quantity > 0 && quantity <= 20;

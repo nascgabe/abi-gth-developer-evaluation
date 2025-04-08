@@ -2,6 +2,7 @@
 using AutoMapper;
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 
@@ -13,6 +14,7 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     private readonly ISaleRepository _saleRepository;
     private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of CreateSaleHandler.
@@ -20,11 +22,12 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     /// <param name="saleRepository">The sale repository</param>
     /// <param name="mapper">The AutoMapper instance</param>
     public CreateSaleHandler(ISaleRepository saleRepository,
-        IProductRepository productRepository, IMapper mapper)
+        IProductRepository productRepository, IMapper mapper, ILogger logger)
     {
         _saleRepository = saleRepository;
         _productRepository = productRepository;
         _mapper = mapper;
+        _logger = logger;
     }
 
     /// <summary>
@@ -41,9 +44,13 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
         sale.SaleDate = DateTime.UtcNow;
 
         sale.TotalValue = await ProcessSaleItemsAsync(sale.Items, cancellationToken);
+
         sale.SaleNumber = await GenerateSaleNumberAsync(cancellationToken);
 
         var createdSale = await _saleRepository.CreateAsync(sale, cancellationToken);
+
+        _logger.LogInformation($"SaleCreated: A new sale with ID {createdSale.Id} and number {createdSale.SaleNumber} was created.");
+
         return _mapper.Map<CreateSaleResult>(createdSale);
     }
 

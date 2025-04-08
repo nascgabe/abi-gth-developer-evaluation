@@ -1,5 +1,6 @@
 ﻿using Ambev.DeveloperEvaluation.Domain.Repositories;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Ambev.DeveloperEvaluation.Application.Sale.DeleteSale
 {
@@ -9,10 +10,12 @@ namespace Ambev.DeveloperEvaluation.Application.Sale.DeleteSale
     public class DeleteSaleHandler : IRequestHandler<DeleteSaleCommand, bool>
     {
         private readonly ISaleRepository _saleRepository;
+        private readonly ILogger<DeleteSaleHandler> _logger;
 
-        public DeleteSaleHandler(ISaleRepository saleRepository)
+        public DeleteSaleHandler(ISaleRepository saleRepository, ILogger<DeleteSaleHandler> logger)
         {
             _saleRepository = saleRepository;
+            _logger = logger;
         }
 
         /// <summary>
@@ -27,14 +30,16 @@ namespace Ambev.DeveloperEvaluation.Application.Sale.DeleteSale
             var existingSale = await _saleRepository.GetByIdAsync(request.SaleId, cancellationToken);
             if (existingSale is null)
             {
-                throw new DomainException($"Sale with ID {request.SaleId} not found.");
+                throw new DomainException($"The sale with ID {request.SaleId} does not exist.");
             }
 
             var isDeleted = await _saleRepository.DeleteAsync(request.SaleId, cancellationToken);
             if (!isDeleted)
             {
-                throw new DomainException($"Failed to delete sale with ID {request.SaleId}. Please try again.");
+                throw new DomainException($"Failed to delete the sale with ID {request.SaleId}. Please try again.");
             }
+
+            _logger.LogInformation($"SaleDeleted: Sale with ID {request.SaleId} was successfully deleted.");
 
             return true;
         }
