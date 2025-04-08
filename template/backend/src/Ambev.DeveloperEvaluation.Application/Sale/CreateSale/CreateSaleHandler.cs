@@ -41,13 +41,21 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
         ValidateCommand(command);
 
         var sale = _mapper.Map<Domain.Entities.Sale>(command);
+        if (sale is null)
+            throw new DomainException("Failed to map the sale command. Please verify the input.");
+
         sale.SaleDate = DateTime.UtcNow;
+
+        if (sale.Items is null || !sale.Items.Any())
+            throw new DomainException("Sale must contain at least one item.");
 
         sale.TotalValue = await ProcessSaleItemsAsync(sale.Items, cancellationToken);
 
         sale.SaleNumber = await GenerateSaleNumberAsync(cancellationToken);
 
         var createdSale = await _saleRepository.CreateAsync(sale, cancellationToken);
+        if (createdSale is null)
+            throw new DomainException("Failed to create the sale. Please try again.");
 
         _logger.LogInformation($"SaleCreated: A new sale with ID {createdSale.Id} and number {createdSale.SaleNumber} was created.");
 
@@ -62,13 +70,16 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     /// <returns>The total value of the sale after processing all items</returns>
     private async Task<decimal> ProcessSaleItemsAsync(IEnumerable<Domain.Entities.SaleItem> items, CancellationToken cancellationToken)
     {
+        if (items is null || !items.Any())
+            throw new DomainException("Sale must contain at least one item.");
+
         decimal totalSaleValue = 0;
 
         foreach (var item in items)
         {
             var product = await GetValidatedProductAsync(item.ProductId, item.Quantity, cancellationToken);
-            UpdateStock(product, item.Quantity, cancellationToken);
 
+            await UpdateStock(product, item.Quantity, cancellationToken);
             ApplyPricing(item, product);
             totalSaleValue += item.TotalValue;
         }
@@ -103,7 +114,7 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     /// <param name="quantity">The quantity sold</param>
     /// <param name="cancellationToken">Cancellation token to handle request cancellation</param>
     /// <exception cref="DomainException">Thrown when the stock update fails</exception>
-    private async void UpdateStock(Domain.Entities.Product product, int quantity, CancellationToken cancellationToken)
+    private async Task UpdateStock(Domain.Entities.Product product, int quantity, CancellationToken cancellationToken)
     {
         product.Stock -= quantity;
         var updated = await _productRepository.UpdateStockAsync(product.Id, product.Stock, cancellationToken);
