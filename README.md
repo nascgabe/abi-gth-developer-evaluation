@@ -15,7 +15,6 @@ API para gerenciamento de vendas, permitindo o cadastro, consulta, cancelamento 
 dotnet restore
 dotnet build
 dotnet ef database update
-
 ```
 
 ## 📦 Como Executar Localmente
