@@ -56,10 +56,37 @@ public class ProductRepository : IProductRepository
     {
         var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product == null)
-            return false; 
+            return false;
 
         _context.Products.Remove(product);
         await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Updates an existing product in the repository.
+    /// </summary>
+    /// <param name="product">The product to update.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the product was successfully updated, otherwise false.</returns>
+    public async Task<bool> UpdateAsync(Product product, CancellationToken cancellationToken = default)
+    {
+        var existingProduct = await _context.Products.FirstOrDefaultAsync(p => p.Id == product.Id, cancellationToken);
+
+        if (existingProduct == null)
+            return false;
+
+        existingProduct.Title = product.Title;
+        existingProduct.Description = product.Description;
+        existingProduct.Category = product.Category;
+        existingProduct.Image = product.Image;
+        existingProduct.Price = product.Price;
+        existingProduct.Stock = product.Stock;
+
+        _context.Products.Update(existingProduct);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
         return true;
     }
 

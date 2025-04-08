@@ -34,6 +34,15 @@ public interface IProductRepository
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates an existing product in the repository.
+    /// </summary>
+    /// <param name="product">The product to update.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the product was successfully updated, otherwise false.</returns>
+    Task<bool> UpdateAsync(Product product, CancellationToken cancellationToken = default);
+
+
+    /// <summary>
     /// Updates the stock of a product.
     /// </summary>
     /// <param name="productId">The unique identifier of the product.</param>
