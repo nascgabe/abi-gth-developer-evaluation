@@ -72,4 +72,17 @@ public class UserRepository : IUserRepository
         await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    /// <summary>
+    /// Retrieves a user by their username.
+    /// </summary>
+    /// <param name="username">The username of the user.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The user if found, otherwise null.</returns>
+    public async Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+    }
 }

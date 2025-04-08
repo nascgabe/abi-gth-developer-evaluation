@@ -62,4 +62,19 @@ public class ProductRepository : IProductRepository
         await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public async Task<bool> UpdateStockAsync(Guid productId, int quantity, CancellationToken cancellationToken = default)
+    {
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId, cancellationToken);
+
+        if (product == null)
+            return false;
+
+        product.Stock = quantity;
+
+        _context.Products.Update(product);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
 }

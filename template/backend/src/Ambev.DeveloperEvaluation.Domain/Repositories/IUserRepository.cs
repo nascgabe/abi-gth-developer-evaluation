@@ -38,4 +38,12 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if the user was deleted, false if not found</returns>
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves a user by their username.
+    /// </summary>
+    /// <param name="username">The username of the user.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The user if found, otherwise null.</returns>
+    Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
 }
