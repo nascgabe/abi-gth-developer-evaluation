@@ -1,4 +1,5 @@
-﻿using Ambev.DeveloperEvaluation.Domain.Repositories;
+﻿using Ambev.DeveloperEvaluation.Application.Utilities;
+using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
 using FluentValidation;
 using MediatR;
@@ -130,24 +131,9 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     /// <param name="product">The product associated with the sale item</param>
     private void ApplyPricing(Domain.Entities.SaleItem item, Domain.Entities.Product product)
     {
-        item.UnitPrice = product.Price;
-        item.ProductName = product.Title ?? "Unknown";
-
-        if (item.Quantity >= 4 && item.Quantity < 10)
-        {
-            item.Discount = item.UnitPrice * item.Quantity * 0.10m;
-        }
-        else if (item.Quantity >= 10 && item.Quantity <= 20)
-        {
-            item.Discount = item.UnitPrice * item.Quantity * 0.20m;
-        }
-        else
-        {
-            item.Discount = 0;
-        }
-
-        item.TotalValue = (item.UnitPrice * item.Quantity) - item.Discount;
+        PricingCalculator.ApplyOrUpdatePricing(item, product.Price, item.Quantity, product.Title);
     }
+
 
     /// <summary>
     /// Validates the CreateSale command to ensure it meets the business rules.
