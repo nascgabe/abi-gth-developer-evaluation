@@ -21,6 +21,7 @@ public interface IProductRepository
     /// <param name="id">The unique identifier of the product</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The product if found, otherwise null</returns>
+    
     Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -29,5 +30,15 @@ public interface IProductRepository
     /// <param name="id">The unique identifier of the product</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if the product was successfully deleted, otherwise false</returns>
+    /// 
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the stock of a product.
+    /// </summary>
+    /// <param name="productId">The unique identifier of the product.</param>
+    /// <param name="quantity">The new stock value.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the stock was successfully updated, otherwise false.</returns>
+    Task<bool> UpdateStockAsync(Guid productId, int quantity, CancellationToken cancellationToken = default);
 }
